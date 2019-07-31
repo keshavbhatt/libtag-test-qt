@@ -4,7 +4,7 @@ This is a sample app which utilise LibTag to read audio files metadata. Tested o
 # Build instructions
 
  - install libtag1-dev (sudo apt install libtag1-dev)
- - open project set dir path where you have some music files.
+ - open project set dir path where you have some music files in mainwindow.cpp .
  - build and run app, click load meta button to load metadata of audio files in listWidget like in screenshot below.
 
 # Screenshot
