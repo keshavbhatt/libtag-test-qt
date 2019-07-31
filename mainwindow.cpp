@@ -37,6 +37,7 @@ void MainWindow::loadMetaData(QString file) {
     else
     {
         QStringList metaList;
+        metaList.append("<b>FileName:</b> " +file);
         metaList.append("<b>Length:</b> " +QString::number(fileref.audioProperties()->length()));
         metaList.append("<b>SampleRate:</b> "+QString::number(fileref.audioProperties()->sampleRate()));
         metaList.append("<b>Bitrate:</b> "+QString::number(fileref.audioProperties()->bitrate()));
@@ -45,41 +46,35 @@ void MainWindow::loadMetaData(QString file) {
         metaList.append("<b>Album:</b> "+QString(fileref.tag()->album().toCString()));
         metaList.append("<b>Genre:</b> "+QString(fileref.tag()->genre().toCString()));
         metaList.append("<b>Year:</b> "+QString::number(fileref.tag()->year()));
-        metaList.append("<b>Comment:</b> "+QString(fileref.tag()->comment().toCString()));
+        metaList.append("<b>Comment:</b> "+QString(fileref.tag()->comment().toCString()).split(" ").first());
 
+        QWidget *itemWidget = new QWidget(ui->listWidget);
+        listItem_Ui.setupUi(itemWidget);
+
+        foreach(QString info,metaList){
+            QLabel *item = new QLabel(info);
+            listItem_Ui.meta->addWidget(item);
+        }
 
         TagLib::MPEG::File mpegFile(fileref.file()->name());
-            if (mpegFile.isValid() == false || mpegFile.ID3v2Tag() == nullptr) {
-                return;
-            }
-
-            TagLib::ID3v2::Tag *tag = mpegFile.ID3v2Tag();
-            const TagLib::ID3v2::FrameList frameList = tag->frameList("APIC");
-            if (frameList.isEmpty()) {
-                return;
-            }
-
-            TagLib::ID3v2::AttachedPictureFrame* picFrame;
-            picFrame = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(frameList.front());
-            if (picFrame == nullptr) {
-                return;
-            }
-
-
-
-            QWidget *itemWidget = new QWidget(ui->listWidget);
-            listItem_Ui.setupUi(itemWidget);
-
-            foreach(QString info,metaList){
-                QLabel *item = new QLabel(info);
-                listItem_Ui.meta->addWidget(item);
-            }
-
-            QString cover = picFrame->mimeType().toCString();
-            if(!cover.isEmpty()){
-                QPixmap pixMap;
-                pixMap.loadFromData(reinterpret_cast<const uchar *>(picFrame->picture().data()),picFrame->picture().size());
-                listItem_Ui.cover->setPixmap(pixMap.scaled(listItem_Ui.cover->size(),Qt::KeepAspectRatio));
+            if (mpegFile.isValid() == true || mpegFile.ID3v2Tag() != nullptr) {
+                TagLib::ID3v2::Tag *tag = mpegFile.ID3v2Tag();
+                const TagLib::ID3v2::FrameList frameList = tag->frameList("APIC");
+                if (!frameList.isEmpty()) {
+                    TagLib::ID3v2::AttachedPictureFrame* picFrame;
+                    picFrame = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(frameList.front());
+                    if (picFrame != nullptr) {
+                        QString cover = picFrame->mimeType().toCString();
+                        if(!cover.isEmpty()){
+                            QPixmap pixMap;
+                            pixMap.loadFromData(reinterpret_cast<const uchar *>(picFrame->picture().data()),picFrame->picture().size());
+                            listItem_Ui.cover->setPixmap(pixMap.scaled(listItem_Ui.cover->size(),Qt::KeepAspectRatio));
+                        }
+                    }
+                }else{
+                    QPixmap pixMap(":/data/noCover.png");
+                    listItem_Ui.cover->setPixmap(pixMap.scaled(listItem_Ui.cover->size(),Qt::KeepAspectRatio));
+                }
             }
 
             QListWidgetItem *item = new QListWidgetItem(ui->listWidget);
@@ -93,6 +88,7 @@ void MainWindow::loadMetaData(QString file) {
 void MainWindow::on_pushButton_clicked()
 {
     QDir dir("/tmp/songs_location");
+    qDebug()<<dir.entryList(QDir::NoDotAndDotDot|QDir::AllEntries).count();
 
     foreach(QFileInfo fileInfo , dir.entryInfoList(QDir::NoDotAndDotDot|QDir::AllEntries)){
         QFile file(fileInfo.filePath());
@@ -100,4 +96,10 @@ void MainWindow::on_pushButton_clicked()
         loadMetaData(file.fileName());
         file.deleteLater();
     }
+    qDebug()<<ui->listWidget->count();
+}
+
+void MainWindow::on_clear_clicked()
+{
+    ui->listWidget->clear();
 }

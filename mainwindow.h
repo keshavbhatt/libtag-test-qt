@@ -21,6 +21,8 @@ private slots:
     void loadMetaData(QString file);
     void on_pushButton_clicked();
 
+    void on_clear_clicked();
+
 private:
     Ui::MainWindow *ui;
     Ui::listItem listItem_Ui;
