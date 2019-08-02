@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    ui->setupUi(this);    
+    ui->setupUi(this);
 }
 
 MainWindow::~MainWindow()
@@ -26,80 +26,54 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::loadMetaData(QString file) {
-    QByteArray fileName = QFile::encodeName( file );
-    const char * encodedName = fileName.constData();
-    TagLib::FileRef fileref = TagLib::FileRef( encodedName );
-    if (fileref.isNull())
-    {
-        qDebug()<<"is Null";
-    }
-    else
-    {
-        QStringList metaList;
-        metaList.append("<b>FileName:</b> " +file);
-        metaList.append("<b>Length:</b> " +QString::number(fileref.audioProperties()->length()));
-        metaList.append("<b>SampleRate:</b> "+QString::number(fileref.audioProperties()->sampleRate()));
-        metaList.append("<b>Bitrate:</b> "+QString::number(fileref.audioProperties()->bitrate()));
-        metaList.append("<b>Title:</b> " +QString(fileref.tag()->title().toCString()));
-        metaList.append("<b>Artist:</b> "+QString(fileref.tag()->artist().toCString()));
-        metaList.append("<b>Album:</b> "+QString(fileref.tag()->album().toCString()));
-        metaList.append("<b>Genre:</b> "+QString(fileref.tag()->genre().toCString()));
-        metaList.append("<b>Year:</b> "+QString::number(fileref.tag()->year()));
-        metaList.append("<b>Comment:</b> "+QString(fileref.tag()->comment().toCString()).split(" ").first());
-
-        QWidget *itemWidget = new QWidget(ui->listWidget);
-        listItem_Ui.setupUi(itemWidget);
-
-        foreach(QString info,metaList){
-            QLabel *item = new QLabel(info);
-            listItem_Ui.meta->addWidget(item);
-        }
-
-        TagLib::MPEG::File mpegFile(fileref.file()->name());
-            if (mpegFile.isValid() == true || mpegFile.ID3v2Tag() != nullptr) {
-                TagLib::ID3v2::Tag *tag = mpegFile.ID3v2Tag();
-                const TagLib::ID3v2::FrameList frameList = tag->frameList("APIC");
-                if (!frameList.isEmpty()) {
-                    TagLib::ID3v2::AttachedPictureFrame* picFrame;
-                    picFrame = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(frameList.front());
-                    if (picFrame != nullptr) {
-                        QString cover = picFrame->mimeType().toCString();
-                        if(!cover.isEmpty()){
-                            QPixmap pixMap;
-                            pixMap.loadFromData(reinterpret_cast<const uchar *>(picFrame->picture().data()),picFrame->picture().size());
-                            listItem_Ui.cover->setPixmap(pixMap.scaled(listItem_Ui.cover->size(),Qt::KeepAspectRatio));
-                        }
-                    }
-                }else{
-                    QPixmap pixMap(":/data/noCover.png");
-                    listItem_Ui.cover->setPixmap(pixMap.scaled(listItem_Ui.cover->size(),Qt::KeepAspectRatio));
-                }
-            }
-
-            QListWidgetItem *item = new QListWidgetItem(ui->listWidget);
-            item->setSizeHint(itemWidget->minimumSizeHint());
-
-            ui->listWidget->setItemWidget(item,itemWidget);
-            ui->listWidget->addItem(item);
-    }
-}
-
 void MainWindow::on_pushButton_clicked()
 {
-    QDir dir("/tmp/songs_location");
-    qDebug()<<dir.entryList(QDir::NoDotAndDotDot|QDir::AllEntries).count();
+    meta_thread.disconnect();
+    meta_thread.setUpDirPath("/tmp/songs_location");
+    QObject::connect(&meta_thread,SIGNAL(signalMetaLoaded(const QStringList&,const QPixmap&)),this,SLOT(setMetaData(const QStringList&, const QPixmap&)), Qt::QueuedConnection);
+    meta_thread.start();
+    ui->progressBar->setMinimum(0);
+    ui->progressBar->setMaximum(100);
+}
 
-    foreach(QFileInfo fileInfo , dir.entryInfoList(QDir::NoDotAndDotDot|QDir::AllEntries)){
-        QFile file(fileInfo.filePath());
-//      file.copy("/tmp/songs_location/"+fileInfo.fileName()+".mp3");
-        loadMetaData(file.fileName());
-        file.deleteLater();
+void MainWindow::setMetaData(const QStringList metaList ,const QPixmap pix){
+
+    tasksProgress++;
+    auto val = 100*tasksProgress/QDir("/tmp/songs_location").entryList(QDir::NoDotAndDotDot|QDir::AllEntries).count();
+    ui->progressBar->setValue(val);
+
+    ui->lineEdit->setText("Processing: "+QString(metaList.at(0)).split(":</b> ").last());
+
+    QWidget *itemWidget = new QWidget(ui->listWidget);
+    listItem_Ui.setupUi(itemWidget);
+
+    foreach(QString info,metaList){
+        QLabel *item = new QLabel(info);
+        listItem_Ui.meta->addWidget(item);
     }
-    qDebug()<<ui->listWidget->count();
+
+    listItem_Ui.cover->setPixmap(pix.scaled(listItem_Ui.cover->size(),Qt::KeepAspectRatio));
+
+    QListWidgetItem *item = new QListWidgetItem(ui->listWidget);
+    item->setSizeHint(itemWidget->minimumSizeHint());
+
+    ui->listWidget->setItemWidget(item,itemWidget);
+    ui->listWidget->addItem(item);
+
 }
 
 void MainWindow::on_clear_clicked()
 {
-    ui->listWidget->clear();
+    while(ui->listWidget->count()>0){
+        delete(ui->listWidget->takeItem(ui->listWidget->count()-1));
+    }
+    ui->progressBar->setValue(0);
+    tasksProgress = 0;
+}
+
+void MainWindow::on_stopThread_clicked()
+{
+    meta_thread.stopRunning();
+    ui->progressBar->setValue(0);
+    tasksProgress = 0;
 }

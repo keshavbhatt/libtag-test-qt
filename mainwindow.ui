@@ -21,6 +21,13 @@
        <number>0</number>
       </property>
       <item>
+       <widget class="QPushButton" name="stopThread">
+        <property name="text">
+         <string>Stop thread</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="clear">
         <property name="text">
          <string>Clear List</string>
@@ -35,6 +42,12 @@
        </widget>
       </item>
      </layout>
+    </item>
+    <item>
+     <widget class="QProgressBar" name="progressBar"/>
+    </item>
+    <item>
+     <widget class="QLineEdit" name="lineEdit"/>
     </item>
     <item>
      <widget class="QListWidget" name="listWidget">
